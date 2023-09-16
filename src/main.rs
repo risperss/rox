@@ -71,184 +71,215 @@ impl ContextualToken {
     }
 }
 
-fn scan_tokens(source: String) -> Result<Vec<ContextualToken>, ()> {
-    let keywords = HashMap::from([
-        ("and".to_string(), Token::And),
-        ("class".to_string(), Token::Class),
-        ("else".to_string(), Token::Else),
-        ("false".to_string(), Token::False),
-        ("fun".to_string(), Token::Fun),
-        ("for".to_string(), Token::For),
-        ("if".to_string(), Token::If),
-        ("nil".to_string(), Token::Nil),
-        ("or".to_string(), Token::Or),
-        ("print".to_string(), Token::Print),
-        ("return".to_string(), Token::Return),
-        ("super".to_string(), Token::Super),
-        ("this".to_string(), Token::This),
-        ("true".to_string(), Token::True),
-        ("var".to_string(), Token::Var),
-        ("while".to_string(), Token::While),
-    ]);
-    let chars: Vec<char> = source.chars().collect();
+struct Scanner {
+    chars: Vec<char>,
+    start: usize,
+    current: usize,
+    line: usize,
+    has_error: bool,
+}
 
-    let mut tokens = Vec::new();
-    let mut start: usize = 0;
-    let mut current: usize = 0;
-    let mut line: usize = 1;
-    let mut has_error = false;
+impl Scanner {
+    fn new(source: String) -> Self {
+        Self {
+            chars: source.chars().collect(),
+            start: 0,
+            current: 0,
+            line: 1,
+            has_error: false,
+        }
+    }
 
-    while let Some(first_char) = chars.get(current) {
-        let token: Option<Token> = match first_char {
-            // single char lexemes
-            '(' => Some(Token::LeftParen),
-            ')' => Some(Token::RightParen),
-            '{' => Some(Token::LeftBrace),
-            '}' => Some(Token::RightBrace),
-            ',' => Some(Token::Comma),
-            '.' => Some(Token::Dot),
-            '-' => Some(Token::Minus),
-            '+' => Some(Token::Plus),
-            ';' => Some(Token::SemiColon),
-            '*' => Some(Token::Star),
-            // single or double char lexemes
-            '!' => match chars.get(current + 1) {
-                Some('=') => {
-                    current += 1;
-                    Some(Token::BangEqual)
+    fn report(&self, location: String, message: String) {
+        eprintln!("[line {0}] Error {location} where: {message}", self.line);
+    }
+
+    fn error(&self, message: String) {
+        self.report("".to_string(), message);
+    }
+
+    fn get_current(&self) -> Option<char> {
+        self.chars.get(self.current).copied()
+    }
+
+    fn advance(&mut self) -> Option<char> {
+        self.current += 1;
+        self.chars.get(self.current).copied()
+    }
+
+    fn peek(&self) -> Option<char> {
+        self.chars.get(self.current + 1).copied()
+    }
+
+    fn peek_next(&self) -> Option<char> {
+        self.chars.get(self.current + 2).copied()
+    }
+
+    fn match_next(&mut self, target: char) -> bool {
+        match self.peek() {
+            Some(next) => {
+                if target == next {
+                    true
+                } else {
+                    false
                 }
-                _ => Some(Token::Bang),
             },
-            '=' => match chars.get(current + 1) {
-                Some('=') => {
-                    current += 1;
-                    Some(Token::EqualEqual)
-                }
-                _ => Some(Token::Equal),
-            },
-            '<' => match chars.get(current + 1) {
-                Some('=') => {
-                    current += 1;
-                    Some(Token::LessEqual)
-                }
-                _ => Some(Token::Less),
-            },
-            '>' => match chars.get(current + 1) {
-                Some('=') => {
-                    current += 1;
-                    Some(Token::GreaterEqual)
-                }
-                _ => Some(Token::Greater),
-            },
-            // comments
-            '/' => match chars.get(current + 1) {
-                Some('/') => {
-                    current += 1;
-                    // a comment goes until the end of the line
-                    while let Some(next_char) = chars.get(current + 1) {
-                        match next_char {
-                            '\n' => break,
-                            _ => current += 1,
-                        };
+            _ => false,
+        }
+    }
+
+    fn match_if_next(&mut self, second_char: char, if_matches: Token, otherwise: Token) -> Token {
+        if self.match_next(second_char) {
+            let _ = self.advance();
+            if_matches
+        } else {
+            otherwise
+        }
+    }
+
+    fn scan(&mut self) -> Result<Vec<ContextualToken>, ()> {
+        let keywords = HashMap::from([
+            ("and".to_string(), Token::And),
+            ("class".to_string(), Token::Class),
+            ("else".to_string(), Token::Else),
+            ("false".to_string(), Token::False),
+            ("fun".to_string(), Token::Fun),
+            ("for".to_string(), Token::For),
+            ("if".to_string(), Token::If),
+            ("nil".to_string(), Token::Nil),
+            ("or".to_string(), Token::Or),
+            ("print".to_string(), Token::Print),
+            ("return".to_string(), Token::Return),
+            ("super".to_string(), Token::Super),
+            ("this".to_string(), Token::This),
+            ("true".to_string(), Token::True),
+            ("var".to_string(), Token::Var),
+            ("while".to_string(), Token::While),
+        ]);
+        let mut tokens: Vec<ContextualToken> = Vec::new();
+
+        while let Some(c) = self.get_current() {
+            let token: Option<Token> = match c {
+                // single char lexemes
+                '(' => Some(Token::LeftParen),
+                ')' => Some(Token::RightParen),
+                '{' => Some(Token::LeftBrace),
+                '}' => Some(Token::RightBrace),
+                ',' => Some(Token::Comma),
+                '.' => Some(Token::Dot),
+                '-' => Some(Token::Minus),
+                '+' => Some(Token::Plus),
+                ';' => Some(Token::SemiColon),
+                '*' => Some(Token::Star),
+                // single or double char lexemes
+                '!' => Some(self.match_if_next('=', Token::BangEqual, Token::Bang)),
+                '=' => Some(self.match_if_next('=', Token::EqualEqual, Token::Equal)),
+                '<' => Some(self.match_if_next('=', Token::LessEqual, Token::Less)),
+                '>' => Some(self.match_if_next('=', Token::GreaterEqual, Token::Greater)),
+                // comments
+                '/' => match self.peek() {
+                    Some('/') => {
+                        // a comment goes until the end of the line or file
+                        loop {
+                            break match self.advance() {
+                                Some('\n') | None => None,
+                                _ => continue,
+                            }
+                        }
                     }
+                    _ => Some(Token::Slash),
+                },
+                ' ' | '\r' | '\t' => None,
+                '\n' => {
+                    self.line += 1;
                     None
                 }
-                _ => Some(Token::Slash),
-            },
-            ' ' | '\r' | '\t' => None,
-            '\n' => {
-                line += 1;
-                None
-            }
-            // literals
-            '"' => loop {
-                current += 1;
-                let Some(next_char) = chars.get(current) else {
-                    has_error = true;
-                    error(line, "unterminated string".to_string());
-                    break None;
-                };
-                match next_char {
-                    '"' => {
-                        let literal: String = chars[start + 1..current].iter().collect();
-                        break Some(Token::String(literal.to_string()));
+                // literals
+                '"' => loop {
+                    match self.advance() {
+                        None => {
+                            self.has_error = true;
+                            self.error("unterminated string".to_string());
+                            break None;
+                        },
+                        Some('"') => {
+                            let literal: String = self.chars[self.start + 1..self.current].iter().collect();
+                            break Some(Token::String(literal.to_string()));
+                        },
+                        Some('\n') => {
+                            self.line += 1;
+                        }
+                        _ => (),
                     }
-                    '\n' => {
-                        line += 1;
-                    }
-                    _ => (),
-                };
-            },
-            '0'..='9' => {
-                'outer: while let Some(next_char) = chars.get(current + 1) {
-                    match next_char {
-                        '0'..='9' => current += 1,
-                        '.' => {
-                            if let Some(next_next_char) = chars.get(current + 2) {
-                                match next_next_char {
-                                    '0'..='9' => {
-                                        current += 1;
-                                        while let Some(next_char) = chars.get(current + 1) {
-                                            match next_char {
-                                                '0'..='9' => current += 1,
+                },
+                '0'..='9' => {
+                    'outer: while let Some(next_char) = self.peek() {
+                        match next_char {
+                            '0'..='9' => {
+                                let _ = self.advance();
+                            },
+                            '.' => {
+                                match self.peek_next() {
+                                    Some('0'..='9') => { // digits after dot i.e. the number is a float
+                                        let _ = self.advance(); // consume the dot
+                                        while let Some(next_digit) = self.peek() {
+                                            match next_digit {
+                                                '0'..='9' => {
+                                                    let _ = self.advance();
+                                                },
                                                 _ => break 'outer,
                                             };
                                         }
                                     }
-                                    _ => break,
+                                    _ => break 'outer,
                                 }
                             }
+                            _ => break 'outer,
                         }
-                        _ => break,
+                    }
+                    let literal: String = self.chars[self.start..=self.current].iter().collect();
+                    let value: f64 = literal.parse::<f64>().unwrap();
+                    Some(Token::Number(value))
+                }
+                'a'..='z' | 'A'..='Z' | '_' => {
+                    while let Some(next_char) = self.peek() {
+                        match next_char {
+                            'a'..='z' | 'A'..='Z' | '_' | '0'..='9' => {
+                                let _ = self.advance();
+                            },
+                            _ => break,
+                        };
+                    }
+                    let literal: String = self.chars[self.start..=self.current].iter().collect();
+                    match keywords.get(&literal) {
+                        Some(token) => Some((*token).clone()),
+                        None => Some(Token::Identifier(literal)),
                     }
                 }
-                let literal: String = chars[start..=current].iter().collect();
-                let value: f64 = literal.parse::<f64>().unwrap();
-                Some(Token::Number(value))
-            }
-            'a'..='z' | 'A'..='Z' | '_' => {
-                while let Some(next_char) = chars.get(current + 1) {
-                    match next_char {
-                        'a'..='z' | 'A'..='Z' | '_' | '0'..='9' => current += 1,
-                        _ => break,
-                    };
+                _ => {
+                    self.has_error = true;
+                    self.error("unexpected character".to_string());
+                    None
                 }
-                let literal: String = chars[start..=current].iter().collect();
-                match keywords.get(&literal) {
-                    Some(token) => Some((*token).clone()),
-                    None => Some(Token::Identifier(literal)),
-                }
+            };
+            if let Some(token) = token {
+                tokens.push(ContextualToken::new(token, self.line));
             }
-            _ => {
-                has_error = true;
-                error(line, "unexpected character".to_string());
-                None
-            }
-        };
-        if let Some(token) = token {
-            tokens.push(ContextualToken::new(token, line));
+            let _ = self.advance();
+            self.start = self.current;
         }
-        current += 1;
-        start = current;
+
+        if self.has_error {
+            Err(())
+        } else {
+            Ok(tokens)
+        }
     }
-
-    if has_error {
-        Err(())
-    } else {
-        Ok(tokens)
-    }
-}
-
-fn report(line: usize, location: String, message: String) {
-    eprintln!("[line {line}] Error {location} where: {message}");
-}
-
-fn error(line: usize, message: String) {
-    report(line, "".to_string(), message);
 }
 
 fn run(source: String) -> Result<(), ()> {
-    let tokens = scan_tokens(source)?;
+    let mut scanner = Scanner::new(source);
+    let tokens = scanner.scan()?;
 
     for token in tokens {
         println!("{:?}", token);
