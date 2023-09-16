@@ -5,6 +5,7 @@ use std::io;
 use std::io::prelude::*;
 use std::io::Write;
 use std::process;
+use std::fmt;
 
 #[derive(Debug, Clone)]
 enum Token {
@@ -68,6 +69,12 @@ impl CtxToken {
             line: line,
             lexeme: "".to_string(),
         }
+    }
+}
+
+impl fmt::Display for CtxToken {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}\t{:?}", self.line, self.token)
     }
 }
 
@@ -297,6 +304,7 @@ impl Scanner {
             let _ = self.advance();
             self.start = self.current;
         }
+        tokens.push(CtxToken::new(Token::Eof, self.line));
 
         if self.has_error {
             Err(())
@@ -311,7 +319,7 @@ fn run(source: String) -> Result<(), ()> {
     let tokens = scanner.scan()?;
 
     for token in tokens {
-        println!("{:?}", token);
+        println!("{}", token);
     }
 
     Ok(())
