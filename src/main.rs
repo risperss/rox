@@ -55,13 +55,13 @@ enum Token {
 }
 
 #[derive(Debug, Clone)]
-struct ContextualToken {
+struct CtxToken {
     token: Token,
     line: usize,
     lexeme: String,
 }
 
-impl ContextualToken {
+impl CtxToken {
     fn new(token: Token, line: usize) -> Self {
         Self {
             token: token,
@@ -94,7 +94,8 @@ impl Scanner {
         eprintln!("[line {0}] Error {location} where: {message}", self.line);
     }
 
-    fn error(&self, message: String) {
+    fn error(&mut self, message: String) {
+        self.has_error = true;
         self.report("".to_string(), message);
     }
 
@@ -115,7 +116,7 @@ impl Scanner {
         self.chars.get(self.current + 2).copied()
     }
 
-    fn match_next(&mut self, target: char) -> bool {
+    fn matches_next(&mut self, target: char) -> bool {
         match self.peek() {
             Some(next) => {
                 if target == next {
@@ -123,13 +124,13 @@ impl Scanner {
                 } else {
                     false
                 }
-            },
+            }
             _ => false,
         }
     }
 
     fn match_if_next(&mut self, second_char: char, if_matches: Token, otherwise: Token) -> Token {
-        if self.match_next(second_char) {
+        if self.matches_next(second_char) {
             let _ = self.advance();
             if_matches
         } else {
@@ -137,7 +138,7 @@ impl Scanner {
         }
     }
 
-    fn scan(&mut self) -> Result<Vec<ContextualToken>, ()> {
+    fn scan(&mut self) -> Result<Vec<CtxToken>, ()> {
         let keywords = HashMap::from([
             ("and".to_string(), Token::And),
             ("class".to_string(), Token::Class),
@@ -156,7 +157,7 @@ impl Scanner {
             ("var".to_string(), Token::Var),
             ("while".to_string(), Token::While),
         ]);
-        let mut tokens: Vec<ContextualToken> = Vec::new();
+        let mut tokens: Vec<CtxToken> = Vec::new();
 
         while let Some(c) = self.get_current() {
             let token: Option<Token> = match c {
@@ -182,10 +183,38 @@ impl Scanner {
                         // a comment goes until the end of the line or file
                         loop {
                             break match self.advance() {
-                                Some('\n') | None => None,
+                                Some('\n') => {
+                                    self.line += 1;
+                                    None
+                                }
+                                None => None,
                                 _ => continue,
-                            }
+                            };
                         }
+                    }
+                    Some('*') => {
+                        let mut depth = 1;
+                        let _ = self.advance(); // eat star
+                        while depth != 0 {
+                            match self.advance() {
+                                Some('*') => {
+                                    if self.matches_next('/') {
+                                        depth -= 1;
+                                        let _ = self.advance(); // eat the '/'
+                                    }
+                                }
+                                Some('/') => {
+                                    if self.matches_next('*') {
+                                        depth += 1;
+                                        let _ = self.advance(); // eat the '*'
+                                    }
+                                }
+                                Some('\n') => self.line += 1,
+                                Some(_) => (),
+                                None => break, // TODO: are unclosed multiline comments allowed?
+                            };
+                        }
+                        None
                     }
                     _ => Some(Token::Slash),
                 },
@@ -198,14 +227,14 @@ impl Scanner {
                 '"' => loop {
                     match self.advance() {
                         None => {
-                            self.has_error = true;
                             self.error("unterminated string".to_string());
                             break None;
-                        },
+                        }
                         Some('"') => {
-                            let literal: String = self.chars[self.start + 1..self.current].iter().collect();
+                            let literal: String =
+                                self.chars[self.start + 1..self.current].iter().collect();
                             break Some(Token::String(literal.to_string()));
-                        },
+                        }
                         Some('\n') => {
                             self.line += 1;
                         }
@@ -217,16 +246,17 @@ impl Scanner {
                         match next_char {
                             '0'..='9' => {
                                 let _ = self.advance();
-                            },
+                            }
                             '.' => {
                                 match self.peek_next() {
-                                    Some('0'..='9') => { // digits after dot i.e. the number is a float
+                                    Some('0'..='9') => {
+                                        // digits after dot i.e. the number is a float
                                         let _ = self.advance(); // consume the dot
                                         while let Some(next_digit) = self.peek() {
                                             match next_digit {
                                                 '0'..='9' => {
                                                     let _ = self.advance();
-                                                },
+                                                }
                                                 _ => break 'outer,
                                             };
                                         }
@@ -246,7 +276,7 @@ impl Scanner {
                         match next_char {
                             'a'..='z' | 'A'..='Z' | '_' | '0'..='9' => {
                                 let _ = self.advance();
-                            },
+                            }
                             _ => break,
                         };
                     }
@@ -257,13 +287,12 @@ impl Scanner {
                     }
                 }
                 _ => {
-                    self.has_error = true;
                     self.error("unexpected character".to_string());
                     None
                 }
             };
             if let Some(token) = token {
-                tokens.push(ContextualToken::new(token, self.line));
+                tokens.push(CtxToken::new(token, self.line));
             }
             let _ = self.advance();
             self.start = self.current;
