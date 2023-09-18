@@ -58,7 +58,6 @@ enum Token {
 struct CtxToken {
     token: Token,
     line: usize,
-    lexeme: String,
 }
 
 impl CtxToken {
@@ -66,7 +65,6 @@ impl CtxToken {
         Self {
             token: token,
             line: line,
-            lexeme: "".to_string(),
         }
     }
 }
@@ -122,17 +120,8 @@ impl Scanner {
         self.chars.get(self.current + 2).copied()
     }
 
-    fn matches_next(&mut self, target: char) -> bool {
-        match self.peek() {
-            Some(next) => {
-                if target == next {
-                    true
-                } else {
-                    false
-                }
-            }
-            _ => false,
-        }
+    fn matches_next(&self, target: char) -> bool {
+        self.peek() == Some(target)
     }
 
     fn match_if_next(&mut self, second_char: char, if_matches: Token, otherwise: Token) -> Token {
@@ -292,7 +281,7 @@ impl Scanner {
                     }
 
                     let literal: String = self.chars[self.start..=self.current].iter().collect();
-                    Some(Scanner::lookup_keyword(&literal).unwrap_or(Token::Identifier(literal)))
+                    Scanner::lookup_keyword(&literal).or_else(|| Some(Token::Identifier(literal)))
                 }
                 _ => {
                     self.error("unexpected character".to_string());
