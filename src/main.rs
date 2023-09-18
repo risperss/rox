@@ -1,11 +1,10 @@
-use std::collections::HashMap;
 use std::env;
+use std::fmt;
 use std::fs::File;
 use std::io;
 use std::io::prelude::*;
 use std::io::Write;
 use std::process;
-use std::fmt;
 
 #[derive(Debug, Clone)]
 enum Token {
@@ -145,25 +144,29 @@ impl Scanner {
         }
     }
 
+    fn lookup_keyword(literal: &str) -> Option<Token> {
+        match literal {
+            "and" => Some(Token::And),
+            "class" => Some(Token::Class),
+            "else" => Some(Token::Else),
+            "false" => Some(Token::False),
+            "fun" => Some(Token::Fun),
+            "for" => Some(Token::For),
+            "if" => Some(Token::If),
+            "nil" => Some(Token::Nil),
+            "or" => Some(Token::Or),
+            "print" => Some(Token::Print),
+            "return" => Some(Token::Return),
+            "super" => Some(Token::Super),
+            "this" => Some(Token::This),
+            "true" => Some(Token::True),
+            "var" => Some(Token::Var),
+            "while" => Some(Token::While),
+            _ => None,
+        }
+    }
+
     fn scan(&mut self) -> Result<Vec<CtxToken>, ()> {
-        let keywords = HashMap::from([
-            ("and".to_string(), Token::And),
-            ("class".to_string(), Token::Class),
-            ("else".to_string(), Token::Else),
-            ("false".to_string(), Token::False),
-            ("fun".to_string(), Token::Fun),
-            ("for".to_string(), Token::For),
-            ("if".to_string(), Token::If),
-            ("nil".to_string(), Token::Nil),
-            ("or".to_string(), Token::Or),
-            ("print".to_string(), Token::Print),
-            ("return".to_string(), Token::Return),
-            ("super".to_string(), Token::Super),
-            ("this".to_string(), Token::This),
-            ("true".to_string(), Token::True),
-            ("var".to_string(), Token::Var),
-            ("while".to_string(), Token::While),
-        ]);
         let mut tokens: Vec<CtxToken> = Vec::new();
 
         while let Some(c) = self.get_current() {
@@ -287,11 +290,9 @@ impl Scanner {
                             _ => break,
                         };
                     }
+
                     let literal: String = self.chars[self.start..=self.current].iter().collect();
-                    match keywords.get(&literal) {
-                        Some(token) => Some((*token).clone()),
-                        None => Some(Token::Identifier(literal)),
-                    }
+                    Some(Scanner::lookup_keyword(&literal).unwrap_or(Token::Identifier(literal)))
                 }
                 _ => {
                     self.error("unexpected character".to_string());
