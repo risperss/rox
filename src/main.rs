@@ -9,7 +9,7 @@ mod tokenizer;
 use crate::tokenizer::{Scanner, Token};
 
 mod parser;
-use crate::parser::Expr;
+use crate::parser::{Expr, Parser};
 
 fn run(source: String) -> Result<(), ()> {
     let mut scanner = Scanner::new(source);
@@ -47,17 +47,18 @@ fn run_prompt() {
 }
 
 fn run_debug() {
-    let expression = Expr::Binary {
-        left: Box::new(Expr::Unary {
-            operator: Token::Minus,
-            expression: Box::new(Expr::Literal { literal: 123.0 }),
-        }),
-        operator: Token::Star,
-        right: Box::new(Expr::Grouping {
-            expression: Box::new(Expr::Literal { literal: 45.67 }),
-        }),
-    };
-    println!("{}", expression);
+    let line = String::from("(1 + 2) * 3");
+    let mut scanner = Scanner::new(line);
+    let tokens = scanner.scan().unwrap();
+    let mut tokens: Vec<Token> = tokens
+        .into_iter()
+        .map(|ctx_token| ctx_token.get_token())
+        .collect();
+    let _ = tokens.pop();
+    println!("{:#?}", tokens);
+    let mut parser = Parser::new(tokens);
+    let expr = parser.parse();
+    println!("{:#?}", expr);
 }
 
 fn main() {

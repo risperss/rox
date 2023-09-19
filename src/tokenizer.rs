@@ -107,6 +107,10 @@ impl CtxToken {
             line: line,
         }
     }
+
+    pub fn get_token(&self) -> Token {
+        self.token.clone()
+    }
 }
 
 impl fmt::Display for CtxToken {
