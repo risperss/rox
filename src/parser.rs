@@ -1,8 +1,7 @@
 use crate::tokenizer::Token;
-use std::fmt;
 
 #[derive(Debug, Clone)]
-enum LoxType {
+pub enum LoxType {
     Nil,
     Bool(bool),
     String(String),
@@ -53,16 +52,19 @@ impl Parser {
 }
 
 impl Parser {
-    pub fn parse(&mut self) -> Expr {
+    pub fn parse(&mut self) -> Result<Expr, ()> {
         self.expression()
     }
 
-    fn expression(&mut self) -> Expr {
+    fn expression(&mut self) -> Result<Expr, ()> {
         self.equality()
     }
 
-    fn equality(&mut self) -> Expr {
-        let mut expr = self.comparison();
+    // TODO: factor out all right recursive code into generic functions
+    // don't quite have the skills for this yet
+
+    fn equality(&mut self) -> Result<Expr, ()> {
+        let mut expr = self.comparison()?;
 
         while let Some(token) = self.current_token() {
             match token {
@@ -71,18 +73,18 @@ impl Parser {
                     expr = Expr::Binary {
                         left: Box::new(expr.clone()),
                         operator: token.clone(),
-                        right: Box::new(self.comparison()),
+                        right: Box::new(self.comparison()?),
                     };
                 }
                 _ => break,
             };
         }
 
-        expr
+        Ok(expr)
     }
 
-    fn comparison(&mut self) -> Expr {
-        let mut expr = self.term();
+    fn comparison(&mut self) -> Result<Expr, ()> {
+        let mut expr = self.term()?;
 
         while let Some(token) = self.current_token() {
             match token {
@@ -91,18 +93,18 @@ impl Parser {
                     expr = Expr::Binary {
                         left: Box::new(expr.clone()),
                         operator: token.clone(),
-                        right: Box::new(self.factor().clone()),
+                        right: Box::new(self.factor()?.clone()),
                     };
                 }
                 _ => break,
             };
         }
 
-        expr
+        Ok(expr)
     }
 
-    fn term(&mut self) -> Expr {
-        let mut expr = self.factor();
+    fn term(&mut self) -> Result<Expr, ()> {
+        let mut expr = self.factor()?;
 
         while let Some(token) = self.current_token() {
             match token {
@@ -111,18 +113,18 @@ impl Parser {
                     expr = Expr::Binary {
                         left: Box::new(expr.clone()),
                         operator: token.clone(),
-                        right: Box::new(self.factor().clone()),
+                        right: Box::new(self.factor()?.clone()),
                     };
                 }
                 _ => break,
             };
         }
 
-        expr
+        Ok(expr)
     }
 
-    fn factor(&mut self) -> Expr {
-        let mut expr = self.unary();
+    fn factor(&mut self) -> Result<Expr, ()> {
+        let mut expr = self.unary()?;
 
         while let Some(token) = self.current_token() {
             match token {
@@ -131,60 +133,62 @@ impl Parser {
                     expr = Expr::Binary {
                         left: Box::new(expr.clone()),
                         operator: token.clone(),
-                        right: Box::new(self.unary().clone()),
+                        right: Box::new(self.unary()?.clone()),
                     };
                 }
                 _ => break,
             };
         }
 
-        expr
+        Ok(expr)
     }
 
-    fn unary(&mut self) -> Expr {
-        let token = self.current_token().unwrap();
+    fn unary(&mut self) -> Result<Expr, ()> {
+        let token = self.current_token().ok_or(())?;
         match token {
             Token::Bang | Token::Minus => {
                 self.advance();
-                Expr::Unary {
+                Ok(Expr::Unary {
                     operator: token.clone(),
-                    expression: Box::new(self.unary().clone()),
-                }
-            },
+                    expression: Box::new(self.unary()?.clone()),
+                })
+            }
             _ => self.primary(),
         }
     }
 
-    fn primary(&mut self) -> Expr {
-        let token = self.current_token().unwrap();
+    fn primary(&mut self) -> Result<Expr, ()> {
+        let token = self.current_token().ok_or(())?;
         self.advance();
         match token {
-            Token::False => Expr::Literal {
+            Token::False => Ok(Expr::Literal {
                 value: LoxType::Bool(false),
-            },
-            Token::True => Expr::Literal {
+            }),
+            Token::True => Ok(Expr::Literal {
                 value: LoxType::Bool(true),
-            },
-            Token::Nil => Expr::Literal {
+            }),
+            Token::Nil => Ok(Expr::Literal {
                 value: LoxType::Nil,
-            },
-            Token::Number(value) => Expr::Literal {
+            }),
+            Token::Number(value) => Ok(Expr::Literal {
                 value: LoxType::Number(value),
-            },
-            Token::String(value) => Expr::Literal {
+            }),
+            Token::String(value) => Ok(Expr::Literal {
                 value: LoxType::String(value.clone()),
-            },
+            }),
             Token::LeftParen => {
-                let expression = Box::new(self.expression().clone());
+                let expression = Box::new(self.expression()?.clone());
 
                 let Some(Token::RightParen) = self.current_token() else {
-                    panic!();
+                    return Err(());
                 };
-                self.advance();// eat right paren
+                self.advance(); // eat right paren
 
-                Expr::Grouping { expression: expression }
+                Ok(Expr::Grouping {
+                    expression: expression,
+                })
             }
-            _ => panic!(),
+            _ => Err(()),
         }
     }
 }
