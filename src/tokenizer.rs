@@ -1,6 +1,6 @@
 use std::fmt;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Token {
     // single character tokens
     LeftParen,
@@ -52,13 +52,15 @@ pub enum Token {
 pub struct CtxToken {
     token: Token,
     line: usize,
+    column: usize,
 }
 
 impl CtxToken {
-    fn new(token: Token, line: usize) -> Self {
+    fn new(token: Token, line: usize, column: usize) -> Self {
         Self {
             token: token,
             line: line,
+            column: column,
         }
     }
 
@@ -69,7 +71,7 @@ impl CtxToken {
 
 impl fmt::Display for CtxToken {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}\t{:?}", self.line, self.token)
+        write!(f, "{:?} [{}:{}]", self.token, self.line, self.column)
     }
 }
 
@@ -94,11 +96,11 @@ impl Scanner {
         }
     }
 
-    fn report(&self, message: String) {
-        eprintln!("[{0}:{1}]\tERROR: {message}", self.line, self.column);
+    fn report(&self, message: &str) {
+        eprintln!("ERROR LEXER [{0}:{1}]: {message}", self.line, self.column);
     }
 
-    fn error(&mut self, message: String) {
+    fn error(&mut self, message: &str) {
         self.has_error = true;
         self.report(message);
     }
@@ -232,7 +234,7 @@ impl Scanner {
                 '"' => loop {
                     match self.advance() {
                         None => {
-                            self.error("unterminated string".to_string());
+                            self.error("unterminated string");
                             break None;
                         }
                         Some('"') => {
@@ -290,17 +292,17 @@ impl Scanner {
                     Scanner::lookup_keyword(&literal).or_else(|| Some(Token::Identifier(literal)))
                 }
                 _ => {
-                    self.error("unexpected character".to_string());
+                    self.error("unexpected character");
                     None
                 }
             };
             if let Some(token) = token {
-                tokens.push(CtxToken::new(token, self.line));
+                tokens.push(CtxToken::new(token, self.line, self.column));
             }
             let _ = self.advance();
             self.start = self.current;
         }
-        tokens.push(CtxToken::new(Token::Eof, self.line));
+        tokens.push(CtxToken::new(Token::Eof, self.line, self.column));
 
         if self.has_error {
             Err(())

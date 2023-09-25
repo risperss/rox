@@ -14,10 +14,6 @@ use crate::parser::Parser;
 fn run(source: String) -> Result<(), ()> {
     let mut scanner = Scanner::new(source);
     let tokens = scanner.scan()?;
-    let tokens: Vec<Token> = tokens
-        .into_iter()
-        .map(|ctx_token| ctx_token.get_token())
-        .collect();
     let mut parser = Parser::new(tokens);
     let expr = parser.parse()?;
 
