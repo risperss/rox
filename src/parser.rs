@@ -1,4 +1,5 @@
 use crate::tokenizer::{CtxToken, Token};
+use std::fmt;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum LoxType {
@@ -6,6 +7,18 @@ pub enum LoxType {
     Bool(bool),
     String(String),
     Number(f64),
+}
+
+impl fmt::Display for LoxType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
+            LoxType::Nil => "nil".to_string(),
+            LoxType::Bool(value) => format!("{}", value),
+            LoxType::String(value) => value.clone(),
+            LoxType::Number(value) => format!("{}", value),
+        };
+        write!(f, "{}", s)
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -25,6 +38,36 @@ pub enum Expr {
         operator: CtxToken,
         expr: Box<Expr>,
     },
+}
+
+impl Expr {
+    fn to_string(&self) -> String {
+        match self {
+            Expr::Binary {
+                left,
+                operator,
+                right,
+            } => format!(
+                "({} {} {})",
+                left.to_string(),
+                operator.get_token().get_lexeme(),
+                right.to_string()
+            ),
+            Expr::Grouping { expr } => format!("({})", expr.to_string()),
+            Expr::Literal { value } => format!("{}", value),
+            Expr::Unary { operator, expr } => format!(
+                "({} {})",
+                operator.get_token().get_lexeme(),
+                expr.to_string()
+            ),
+        }
+    }
+}
+
+impl fmt::Display for Expr {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.to_string())
+    }
 }
 
 pub struct Parser {

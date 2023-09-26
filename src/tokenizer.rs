@@ -11,6 +11,7 @@ pub enum Token {
     Dot,
     Minus,
     Plus,
+    Colon,
     SemiColon,
     Slash,
     Star,
@@ -46,6 +47,53 @@ pub enum Token {
     While,
     // --
     Eof,
+}
+
+impl Token {
+    pub fn get_lexeme(&self) -> String {
+        match self {
+            Token::LeftParen => "(".to_string(),
+            Token::RightParen => ")".to_string(),
+            Token::LeftBrace => "{".to_string(),
+            Token::RightBrace => "}".to_string(),
+            Token::Comma => ".to_string(),".to_string(),
+            Token::Dot => ".".to_string(),
+            Token::Minus => "-".to_string(),
+            Token::Plus => "+".to_string(),
+            Token::SemiColon => ";".to_string(),
+            Token::Colon => ":".to_string(),
+            Token::Slash => "/".to_string(),
+            Token::Star => "*".to_string(),
+            Token::Bang => "!".to_string(),
+            Token::BangEqual => "!=".to_string(),
+            Token::Equal => "=".to_string(),
+            Token::EqualEqual => "==".to_string(),
+            Token::Greater => ">".to_string(),
+            Token::GreaterEqual => ">=".to_string(),
+            Token::Less => "<".to_string(),
+            Token::LessEqual => "<=".to_string(),
+            Token::Identifier(literal) => literal.clone(),
+            Token::String(literal) => literal.clone(),
+            Token::Number(value) => value.to_string(),
+            Token::And => "and".to_string(),
+            Token::Class => "class".to_string(),
+            Token::Else => "else".to_string(),
+            Token::False => "false".to_string(),
+            Token::Fun => "fun".to_string(),
+            Token::For => "for".to_string(),
+            Token::If => "if".to_string(),
+            Token::Nil => "nil".to_string(),
+            Token::Or => "or".to_string(),
+            Token::Print => "print".to_string(),
+            Token::Return => "return".to_string(),
+            Token::Super => "super".to_string(),
+            Token::This => "this".to_string(),
+            Token::True => "true".to_string(),
+            Token::Var => "var".to_string(),
+            Token::While => "while".to_string(),
+            Token::Eof => "EOF".to_string(),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -177,6 +225,7 @@ impl Scanner {
                 '.' => Some(Token::Dot),
                 '-' => Some(Token::Minus),
                 '+' => Some(Token::Plus),
+                ':' => Some(Token::Colon),
                 ';' => Some(Token::SemiColon),
                 '*' => Some(Token::Star),
                 // single or double char lexemes

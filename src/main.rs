@@ -17,7 +17,7 @@ fn run(source: String) -> Result<(), ()> {
     let mut parser = Parser::new(tokens);
     let expr = parser.parse()?;
 
-    println!("{:#?}", expr);
+    println!("{}", expr);
 
     Ok(())
 }
