@@ -14,7 +14,7 @@ impl fmt::Display for LoxType {
         let s = match self {
             LoxType::Nil => "nil".to_string(),
             LoxType::Bool(value) => format!("{}", value),
-            LoxType::String(value) => value.clone(),
+            LoxType::String(value) => format!("\"{}\"", value.clone()),
             LoxType::Number(value) => format!("{}", value),
         };
         write!(f, "{}", s)
@@ -38,6 +38,11 @@ pub enum Expr {
         operator: CtxToken,
         expr: Box<Expr>,
     },
+    Ternary {
+        condition: Box<Expr>,
+        then: Box<Expr>,
+        otherwise: Box<Expr>,
+    },
 }
 
 impl Expr {
@@ -59,6 +64,16 @@ impl Expr {
                 "({} {})",
                 operator.get_token().get_lexeme(),
                 expr.to_string()
+            ),
+            Expr::Ternary {
+                condition,
+                then,
+                otherwise,
+            } => format!(
+                "({} ? {} : {})",
+                condition.to_string(),
+                then.to_string(),
+                otherwise.to_string(),
             ),
         }
     }
@@ -143,7 +158,30 @@ impl Parser {
     }
 
     fn expression(&mut self) -> Result<Expr, ()> {
-        self.equality()
+        self.ternary()
+    }
+
+    fn ternary(&mut self) -> Result<Expr, ()> {
+        let expr = self.equality()?;
+
+        match self.get_current() {
+            Some(token) => match token.get_token() {
+                Token::Quest => {
+                    self.advance();
+                    let then = self.expression()?;
+                    let _ =
+                        self.consume(Token::Colon, "expected colon inside ternary expression")?;
+                    let otherwise = self.expression()?;
+                    Ok(Expr::Ternary {
+                        condition: Box::new(expr),
+                        then: Box::new(then),
+                        otherwise: Box::new(otherwise),
+                    })
+                }
+                _ => Ok(expr),
+            },
+            None => Ok(expr),
+        }
     }
 
     fn equality(&mut self) -> Result<Expr, ()> {

@@ -15,6 +15,7 @@ pub enum Token {
     SemiColon,
     Slash,
     Star,
+    Quest,
     // one or two character tokens
     Bang,
     BangEqual,
@@ -64,6 +65,7 @@ impl Token {
             Token::Colon => ":".to_string(),
             Token::Slash => "/".to_string(),
             Token::Star => "*".to_string(),
+            Token::Quest => "?".to_string(),
             Token::Bang => "!".to_string(),
             Token::BangEqual => "!=".to_string(),
             Token::Equal => "=".to_string(),
@@ -228,6 +230,7 @@ impl Scanner {
                 ':' => Some(Token::Colon),
                 ';' => Some(Token::SemiColon),
                 '*' => Some(Token::Star),
+                '?' => Some(Token::Quest),
                 // single or double char lexemes
                 '!' => Some(self.match_if_next('=', Token::BangEqual, Token::Bang)),
                 '=' => Some(self.match_if_next('=', Token::EqualEqual, Token::Equal)),
