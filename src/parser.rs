@@ -2,20 +2,20 @@ use crate::tokenizer::{CtxToken, Token};
 use std::fmt;
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum LoxType {
+pub enum Type {
     Nil,
     Bool(bool),
     String(String),
     Number(f64),
 }
 
-impl fmt::Display for LoxType {
+impl fmt::Display for Type {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let s = match self {
-            LoxType::Nil => "nil".to_string(),
-            LoxType::Bool(value) => format!("{}", value),
-            LoxType::String(value) => format!("\"{}\"", value.clone()),
-            LoxType::Number(value) => format!("{}", value),
+            Type::Nil => "nil".to_string(),
+            Type::Bool(value) => format!("{}", value),
+            Type::String(value) => format!("\"{}\"", value.clone()),
+            Type::Number(value) => format!("{}", value),
         };
         write!(f, "{}", s)
     }
@@ -32,7 +32,7 @@ pub enum Expr {
         expr: Box<Expr>,
     },
     Literal {
-        value: LoxType,
+        value: Type,
     },
     Unary {
         operator: CtxToken,
@@ -104,9 +104,7 @@ impl Parser {
             .unwrap_or_else(|| self.tokens.last().unwrap().clone());
         eprintln!("ERROR PARSER {}: {}", token, message);
     }
-}
 
-impl Parser {
     fn get_current(&self) -> Option<CtxToken> {
         self.tokens.get(self.current).cloned()
     }
@@ -129,6 +127,7 @@ impl Parser {
         }
     }
 
+    #[allow(unused)]
     fn synchronize(&mut self) {
         while let Some(token) = self.get_current() {
             match token.get_token() {
@@ -286,31 +285,29 @@ impl Parser {
                 Token::False => {
                     self.advance();
                     Ok(Expr::Literal {
-                        value: LoxType::Bool(false),
+                        value: Type::Bool(false),
                     })
                 }
                 Token::True => {
                     self.advance();
                     Ok(Expr::Literal {
-                        value: LoxType::Bool(true),
+                        value: Type::Bool(true),
                     })
                 }
                 Token::Nil => {
                     self.advance();
-                    Ok(Expr::Literal {
-                        value: LoxType::Nil,
-                    })
+                    Ok(Expr::Literal { value: Type::Nil })
                 }
                 Token::Number(value) => {
                     self.advance();
                     Ok(Expr::Literal {
-                        value: LoxType::Number(value),
+                        value: Type::Number(value),
                     })
                 }
                 Token::String(value) => {
                     self.advance();
                     Ok(Expr::Literal {
-                        value: LoxType::String(value.clone()),
+                        value: Type::String(value.clone()),
                     })
                 }
                 Token::LeftParen => {

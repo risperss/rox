@@ -3,21 +3,24 @@ use std::fs::File;
 use std::io;
 use std::io::prelude::*;
 use std::io::Write;
-use std::process;
 
 mod tokenizer;
-use crate::tokenizer::{Scanner, Token};
+use crate::tokenizer::Scanner;
 
 mod parser;
 use crate::parser::Parser;
+
+mod interpreter;
+use crate::interpreter::Interpreter;
 
 fn run(source: String) -> Result<(), ()> {
     let mut scanner = Scanner::new(source);
     let tokens = scanner.scan()?;
     let mut parser = Parser::new(tokens);
     let expr = parser.parse()?;
+    let result = Interpreter::evaluate(Box::new(expr))?;
 
-    println!("{}", expr);
+    println!("{}", result);
 
     Ok(())
 }
@@ -55,7 +58,6 @@ fn main() {
 
     if args.len() > 2 {
         println!("Usage: cargo run [script]");
-        process::exit(64);
     } else if args.len() == 2 {
         if args[1] == "DEBUG" {
             run_debug();
