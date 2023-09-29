@@ -265,51 +265,71 @@ impl Parser {
     }
 
     fn unary(&mut self) -> Result<Expr, ()> {
-        let token = self
-            .get_current()
-            .ok_or_else(|| self.error("missing token in unary expression"))?;
-
-        match token.get_token() {
-            Token::Bang | Token::Minus => {
-                self.advance();
-                Ok(Expr::Unary {
-                    operator: token.clone(),
-                    expr: Box::new(self.unary()?.clone()),
-                })
-            }
+        match self.get_current() {
+            Some(token) => match token.get_token() {
+                Token::Bang | Token::Minus => {
+                    self.advance();
+                    Ok(Expr::Unary {
+                        operator: token.clone(),
+                        expr: Box::new(self.unary()?.clone()),
+                    })
+                }
+                _ => self.primary(),
+            },
             _ => self.primary(),
         }
     }
 
     fn primary(&mut self) -> Result<Expr, ()> {
-        let token = self
-            .get_current()
-            .ok_or_else(|| self.error("missing token in primary expression"))?;
+        match self.get_current() {
+            Some(token) => match token.get_token() {
+                Token::False => {
+                    self.advance();
+                    Ok(Expr::Literal {
+                        value: LoxType::Bool(false),
+                    })
+                }
+                Token::True => {
+                    self.advance();
+                    Ok(Expr::Literal {
+                        value: LoxType::Bool(true),
+                    })
+                }
+                Token::Nil => {
+                    self.advance();
+                    Ok(Expr::Literal {
+                        value: LoxType::Nil,
+                    })
+                }
+                Token::Number(value) => {
+                    self.advance();
+                    Ok(Expr::Literal {
+                        value: LoxType::Number(value),
+                    })
+                }
+                Token::String(value) => {
+                    self.advance();
+                    Ok(Expr::Literal {
+                        value: LoxType::String(value.clone()),
+                    })
+                }
+                Token::LeftParen => {
+                    self.advance();
+                    let expr = Box::new(self.expression()?.clone());
+                    let _ = self.consume(Token::RightParen, "missing closing paren")?;
 
-        self.advance();
-        match token.get_token() {
-            Token::False => Ok(Expr::Literal {
-                value: LoxType::Bool(false),
-            }),
-            Token::True => Ok(Expr::Literal {
-                value: LoxType::Bool(true),
-            }),
-            Token::Nil => Ok(Expr::Literal {
-                value: LoxType::Nil,
-            }),
-            Token::Number(value) => Ok(Expr::Literal {
-                value: LoxType::Number(value),
-            }),
-            Token::String(value) => Ok(Expr::Literal {
-                value: LoxType::String(value.clone()),
-            }),
-            Token::LeftParen => {
-                let expr = Box::new(self.expression()?.clone());
-                let _ = self.consume(Token::RightParen, "expected closing paren")?;
-
-                Ok(Expr::Grouping { expr: expr })
-            }
-            _ => Err(self.error("expected expression")),
+                    Ok(Expr::Grouping { expr: expr })
+                }
+                Token::EqualEqual
+                | Token::BangEqual
+                | Token::Less
+                | Token::LessEqual
+                | Token::Greater
+                | Token::GreaterEqual
+                | Token::Plus => Err(self.error("missing expression on left side of operator")),
+                _ => Err(self.error("missing expression")),
+            },
+            _ => Err(self.error("missing expression")),
         }
     }
 }
