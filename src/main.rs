@@ -18,9 +18,7 @@ fn run(source: String) -> Result<(), ()> {
     let tokens = scanner.scan()?;
     let mut parser = Parser::new(tokens);
     let expr = parser.parse()?;
-    let result = Interpreter::evaluate(Box::new(expr))?;
-
-    println!("{}", result);
+    let _ = Interpreter::interpret(expr);
 
     Ok(())
 }
