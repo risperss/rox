@@ -151,6 +151,30 @@ impl Parser {
     }
 }
 
+macro_rules! right_recurse {
+    ($func_name:ident, $toks:pat, $higher_prec:ident) => (
+        fn $func_name(&mut self) -> Result<Expr, ()> {
+            let mut expr = self.$higher_prec()?;
+
+            while let Some(token) = self.get_current() {
+                match token.get_token() {
+                    $toks => {
+                        self.advance();
+                        expr = Expr::Binary {
+                           left: Box::new(expr.clone()),
+                           operator: token.clone(),
+                           right: Box::new(self.$higher_prec()?.clone()),
+                        }
+                    },
+                    _ => break,
+                }
+            }
+
+            Ok(expr)
+        }
+    )
+}
+
 impl Parser {
     pub fn parse(&mut self) -> Result<Expr, ()> {
         self.expression()
@@ -183,85 +207,10 @@ impl Parser {
         }
     }
 
-    fn equality(&mut self) -> Result<Expr, ()> {
-        let mut expr = self.comparison()?;
-
-        while let Some(token) = self.get_current() {
-            match token.get_token() {
-                Token::EqualEqual | Token::BangEqual => {
-                    self.advance();
-                    expr = Expr::Binary {
-                        left: Box::new(expr.clone()),
-                        operator: token.clone(),
-                        right: Box::new(self.comparison()?),
-                    };
-                }
-                _ => break,
-            };
-        }
-
-        Ok(expr)
-    }
-
-    fn comparison(&mut self) -> Result<Expr, ()> {
-        let mut expr = self.term()?;
-
-        while let Some(token) = self.get_current() {
-            match token.get_token() {
-                Token::Less | Token::LessEqual | Token::Greater | Token::GreaterEqual => {
-                    self.advance();
-                    expr = Expr::Binary {
-                        left: Box::new(expr.clone()),
-                        operator: token.clone(),
-                        right: Box::new(self.factor()?.clone()),
-                    };
-                }
-                _ => break,
-            };
-        }
-
-        Ok(expr)
-    }
-
-    fn term(&mut self) -> Result<Expr, ()> {
-        let mut expr = self.factor()?;
-
-        while let Some(token) = self.get_current() {
-            match token.get_token() {
-                Token::Plus | Token::Minus => {
-                    self.advance();
-                    expr = Expr::Binary {
-                        left: Box::new(expr.clone()),
-                        operator: token.clone(),
-                        right: Box::new(self.factor()?.clone()),
-                    };
-                }
-                _ => break,
-            };
-        }
-
-        Ok(expr)
-    }
-
-    fn factor(&mut self) -> Result<Expr, ()> {
-        let mut expr = self.unary()?;
-
-        while let Some(token) = self.get_current() {
-            match token.get_token() {
-                Token::Slash | Token::Star => {
-                    self.advance();
-                    expr = Expr::Binary {
-                        left: Box::new(expr.clone()),
-                        operator: token.clone(),
-                        right: Box::new(self.unary()?.clone()),
-                    };
-                }
-                _ => break,
-            };
-        }
-
-        Ok(expr)
-    }
+    right_recurse!(equality, Token::EqualEqual | Token::BangEqual, comparison);
+    right_recurse!(comparison, Token::Less | Token::LessEqual | Token::Greater | Token::GreaterEqual, term);
+    right_recurse!(term, Token::Plus | Token::Minus, factor);
+    right_recurse!(factor, Token::Slash | Token::Star, unary);
 
     fn unary(&mut self) -> Result<Expr, ()> {
         match self.get_current() {
